@@ -48,6 +48,21 @@ app.post("/recenter", (_req, res) => {
   res.sendStatus(204);
 });
 
+// Transport: /play takes a single OSC string (song name); /stop is bare.
+// Bela's gPlayer.play(songName) opens the matching stems on the device.
+app.post("/play", (req, res) => {
+  const song = String((req.body && req.body.song) || "");
+  osc.send("/play", song, () => {});
+  if (LOG_OSC) console.log(`→ /play "${song}"`);
+  res.sendStatus(204);
+});
+
+app.post("/stop", (_req, res) => {
+  osc.send("/stop", () => {});
+  if (LOG_OSC) console.log("→ /stop");
+  res.sendStatus(204);
+});
+
 app.listen(HTTP_PORT, () => {
   console.log(`UI on http://localhost:${HTTP_PORT}`);
   console.log(`Sending OSC to ${BELA_HOST}:${BELA_PORT}`);
