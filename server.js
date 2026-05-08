@@ -2,9 +2,12 @@ const express = require("express");
 const { Client } = require("node-osc");
 
 // Edit these to point at a different Bela / change the local UI port.
-const BELA_HOST = "192.168.7.2";
-const BELA_PORT = 9000;
-const HTTP_PORT = 3000;
+// Each is overridable via env var so the same checkout can run either on a
+// laptop tethered to the Bela (defaults) or on the Bela itself (set
+// BELA_HOST=127.0.0.1 in the systemd unit so OSC goes over loopback).
+const BELA_HOST = process.env.BELA_HOST || "192.168.7.2";
+const BELA_PORT = Number(process.env.BELA_PORT) || 9000;
+const HTTP_PORT = Number(process.env.HTTP_PORT) || 3000;
 
 const app = express();
 const osc = new Client(BELA_HOST, BELA_PORT);
