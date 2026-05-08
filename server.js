@@ -1,0 +1,59 @@
+const express = require("express");
+const { Client } = require("node-osc");
+
+// Edit these to point at a different Bela / change the local UI port.
+const BELA_HOST = "192.168.7.2";
+const BELA_PORT = 9000;
+const HTTP_PORT = 3000;
+
+const app = express();
+const osc = new Client(BELA_HOST, BELA_PORT);
+
+app.use(express.json());
+app.use(express.static("public"));
+
+// Bela expects /xyz with type tags `ffff` (object index, x, y, z — all floats).
+// node-osc auto-encodes whole-number JS values as OSC int32, which would make
+// the index (and any x/y/z that lands on 0 or 1) the wrong type. Wrap each
+// arg as { type: 'f', value } to force float encoding.
+const f = (v) => ({ type: "f", value: Number(v) });
+
+// Log throttling: at most one log line per object per LOG_INTERVAL_MS so the
+// terminal isn't drowned during slider drags. Set LOG_OSC=0 to silence.
+const LOG_OSC = process.env.LOG_OSC !== "0";
+const LOG_INTERVAL_MS = 250;
+const lastLogged = new Map();
+
+app.post("/xyz", (req, res) => {
+  const { i, x, y, z } = req.body;
+  osc.send("/xyz", f(i), f(x), f(y), f(z), () => {});
+  if (LOG_OSC) {
+    const now = Date.now();
+    if (now - (lastLogged.get(i) || 0) >= LOG_INTERVAL_MS) {
+      lastLogged.set(i, now);
+      console.log(
+        `→ /xyz ffff ${Number(i).toFixed(3)} ${Number(x).toFixed(3)} ${Number(y).toFixed(3)} ${Number(z).toFixed(3)}`,
+      );
+    }
+  }
+  res.sendStatus(204);
+});
+
+// Bela head tracker recenter — bare OSC message, no args. node-osc emits a
+// type-tag string of just "," when no args are passed, which oscpkt's
+// isOkNoMoreArgs() accepts.
+app.post("/recenter", (_req, res) => {
+  osc.send("/recenter", () => {});
+  if (LOG_OSC) console.log("→ /recenter");
+  res.sendStatus(204);
+});
+
+app.listen(HTTP_PORT, () => {
+  console.log(`UI on http://localhost:${HTTP_PORT}`);
+  console.log(`Sending OSC to ${BELA_HOST}:${BELA_PORT}`);
+});
+
+process.on("SIGINT", () => {
+  osc.close();
+  process.exit(0);
+});

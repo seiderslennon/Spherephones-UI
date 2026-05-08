@@ -1,0 +1,627 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>spherephones UI</title>
+    <style>
+      :root {
+        /* Wheel pixel size: drives SVG dimensions and el-slider slot height.
+           The radius slider track spans az-column + gap + el-column — both
+           columns use --wheel-w wide slots so rows align. */
+        --wheel-w: 150px;
+        --col-gap: 3rem;
+        --top-row-w: calc(var(--wheel-w) + var(--col-gap) + var(--wheel-w));
+        /* Slider tracks use the same color as the wheel ring / ticks. */
+        --wheel-track: #ffffff;
+        /* Line weight: match SVG wheel stroke and slider track thickness. */
+        --wheel-stroke-w: 1px;
+        --wheel-track-w: var(--wheel-stroke-w);
+        --thumb-size: 14px;
+      }
+      body {
+        font-family: system-ui, sans-serif;
+        margin: 1rem;
+        background: #000;
+        color: #eee;
+        /* re-tints native sliders / focus rings without needing
+           thumb/track CSS overrides */
+        accent-color: #fff;
+      }
+      h1 {
+        font-size: 1.1rem;
+        margin: 0 0 0.75rem 0;
+        font-weight: 500;
+      }
+      .layout {
+        display: grid;
+        /* ~920px fits two panel columns (each ~798px intrinsic min) inside
+           one outer column without overflowing onto the hero. */
+        grid-template-columns: minmax(0, min(920px, 100%)) minmax(0, 1fr);
+        gap: 1.5rem;
+        align-items: start;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(
+          auto-fit,
+          minmax(min(100%, 410px), 1fr)
+        );
+        gap: 0.75rem;
+      }
+      .hero {
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+      }
+      .hero img {
+        width: 100%;
+        max-width: 1000px;
+        height: auto;
+        display: block;
+        border-radius: 4px;
+      }
+      /* Narrow windows: stack controls above hero so panels never overlap. */
+      @media (max-width: 980px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+      }
+      fieldset {
+        border: 1px solid #444;
+        padding: 0.5rem 0.75rem 0.75rem;
+      }
+      legend {
+        font-weight: bold;
+        color: #eee;
+      }
+      .top {
+        display: flex;
+        align-items: flex-start;
+        gap: var(--col-gap);
+        margin: 0.25rem 0 1.5rem;
+      }
+      .stack {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.25rem;
+        position: relative;
+      }
+      /* az-stack is fixed at the wheel width so the wheel doesn't shift
+         when the editable value below changes width. */
+      .az-stack {
+        width: var(--wheel-w);
+      }
+      /* el-stack matches az-stack width; elevation uses a rotated
+         horizontal range inside .el-slider-wrap so kiosk/fullscreen
+         Chrome doesn't mis-place vertical-writing-mode thumbs. */
+      .el-stack {
+        width: var(--wheel-w);
+      }
+      .el-stack > .num {
+        position: absolute;
+        top: calc(100% + 0.25rem);
+        left: 50%;
+        transform: translateX(-50%);
+      }
+      .wheel {
+        cursor: grab;
+        touch-action: none;
+        user-select: none;
+      }
+      .wheel:active {
+        cursor: grabbing;
+      }
+      .wheel .ring,
+      .wheel .tick {
+        stroke: var(--wheel-track);
+        stroke-width: var(--wheel-stroke-w);
+      }
+      .wheel .arm {
+        stroke: #000000;
+      }
+      .wheel .dot {
+        fill: #fff;
+      }
+      /* White thumb on a thin track. Custom-styling the thumb requires
+         appearance: none, which also removes the default track, so the
+         track pseudo-element is re-styled here. */
+      input[type="range"] {
+        -webkit-appearance: none;
+        appearance: none;
+        background: transparent;
+      }
+      input[type="range"]::-webkit-slider-runnable-track {
+        background: var(--wheel-track);
+        height: var(--wheel-track-w);
+        border-radius: calc(var(--wheel-track-w) / 2);
+      }
+      input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: var(--thumb-size);
+        height: var(--thumb-size);
+        margin-top: calc((var(--thumb-size) - var(--wheel-track-w)) / -2);
+        background: #fff;
+        border-radius: 50%;
+        border: none;
+        cursor: pointer;
+      }
+      input[type="range"]::-moz-range-track {
+        background: var(--wheel-track);
+        height: var(--wheel-track-w);
+        border-radius: calc(var(--wheel-track-w) / 2);
+      }
+      input[type="range"]::-moz-range-thumb {
+        width: var(--thumb-size);
+        height: var(--thumb-size);
+        background: #fff;
+        border-radius: 50%;
+        border: none;
+        cursor: pointer;
+      }
+      /* Elevation: horizontal range rotated -90deg inside a fixed slot.
+         Avoids writing-mode:vertical-lr thumb bugs (Chrome kiosk / fullscreen). */
+      .el-slider-wrap {
+        width: var(--wheel-w);
+        height: var(--wheel-w);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: visible;
+      }
+      .el-slider-wrap input[type="range"] {
+        width: var(--wheel-w);
+        height: auto;
+        margin: 0;
+        transform: rotate(-90deg) translateY(calc((var(--thumb-size) - var(--wheel-track-w)) / -4));
+        transform-origin: center center;
+      }
+      .r-row {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+      }
+      .r-row input[type="range"] {
+        width: var(--top-row-w);
+        margin: 0;
+      }
+      /* Editable legend (object name). */
+      .name-input {
+        font: inherit;
+        font-weight: bold;
+        color: #eee;
+        border: 1px solid transparent;
+        background: transparent;
+        padding: 1px 4px;
+        width: 8em;
+        border-radius: 2px;
+      }
+      .name-input:hover {
+        border-color: #444;
+      }
+      .name-input:focus {
+        outline: none;
+        border-color: #fff;
+        background: #111;
+        color: #fff;
+      }
+      /* Editable numeric value (az / el / r). */
+      .num {
+        font: inherit;
+        font-size: 0.85rem;
+        font-variant-numeric: tabular-nums;
+        text-align: center;
+        border: 1px solid transparent;
+        background: transparent;
+        color: #aaa;
+        padding: 1px 2px;
+        width: 4.5em;
+        border-radius: 2px;
+        box-sizing: border-box;
+      }
+      .num:hover {
+        border-color: #444;
+      }
+      .num:focus {
+        outline: none;
+        border-color: #fff;
+        color: #fff;
+        background: #111;
+      }
+      /* Static label above each control. */
+      .ctrl-label {
+        font-size: 0.75rem;
+        color: #888;
+        letter-spacing: 0.05em;
+        text-align: center;
+        font-variant-numeric: tabular-nums;
+      }
+      .rad-label {
+        text-align: left;
+        margin: 0 0 0.15rem;
+      }
+      .xyz {
+        margin-top: 0.4rem;
+        font-size: 0.8rem;
+        color: #888;
+        font-variant-numeric: tabular-nums;
+      }
+      /* Page-level toolbar holding the title and global actions like recenter. */
+      .toolbar {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin: 0 0 0.75rem 0;
+      }
+      .toolbar h1 {
+        margin: 0;
+      }
+      .btn {
+        font: inherit;
+        font-size: 0.85rem;
+        color: #eee;
+        background: #111;
+        border: 1px solid #444;
+        padding: 0.3rem 0.7rem;
+        border-radius: 3px;
+        cursor: pointer;
+      }
+      .btn:hover {
+        border-color: #888;
+      }
+      .btn:active {
+        background: #222;
+      }
+      /* Brief flash on successful send so the user gets feedback even though
+         the action is fire-and-forget OSC. */
+      .btn.flash {
+        background: #fff;
+        color: #000;
+        border-color: #fff;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="toolbar">
+      <h1>spherephones &mdash; OSC /xyz to Bela</h1>
+      <button id="recenter" class="btn" type="button">recenter head tracker</button>
+    </div>
+    <div class="layout">
+      <div id="grid" class="grid"></div>
+      <div class="hero">
+        <img src="spherephones.png" alt="spherephones device" />
+      </div>
+    </div>
+
+    <script>
+      // Spherical -> cartesian convention.
+      // azDeg: 0 = +x axis (front), increases clockwise toward -y (right).
+      //        Matches the wheel UI: 0 = up on screen, positive = clockwise,
+      //        with Bela's left-handed y convention (right = -y).
+      // elDeg: 0 = horizontal plane, +90 = +z (up).
+      // Edit here if Bela expects different axes / signs.
+      function sphericalToCartesian(azDeg, elDeg, r) {
+        const az = (azDeg * Math.PI) / 180;
+        const el = (elDeg * Math.PI) / 180;
+        const x = r * Math.cos(el) * Math.cos(az);
+        const y = -r * Math.cos(el) * Math.sin(az);
+        const z = r * Math.sin(el);
+        return { x, y, z };
+      }
+
+      const NUM_OBJECTS = 4;
+
+      // Wheel UI convention (independent of math convention above):
+      // 0 deg points up on screen, positive rotates clockwise.
+      // The numeric value still flows directly into sphericalToCartesian.
+      function makeWheel(initialAz, onChange) {
+        const SIZE = 150;
+        const R = 64;
+        const TICK_LEN = 7;
+        const DOT_R = 8;
+        const ns = "http://www.w3.org/2000/svg";
+
+        const svg = document.createElementNS(ns, "svg");
+        svg.setAttribute("class", "wheel");
+        svg.setAttribute("width", SIZE);
+        svg.setAttribute("height", SIZE);
+        svg.setAttribute("viewBox", `${-SIZE / 2} ${-SIZE / 2} ${SIZE} ${SIZE}`);
+
+        const ring = document.createElementNS(ns, "circle");
+        ring.setAttribute("class", "ring");
+        ring.setAttribute("r", R);
+        ring.setAttribute("fill", "none");
+        svg.appendChild(ring);
+
+        for (const a of [0, 90, 180, 270]) {
+          const rad = (a * Math.PI) / 180;
+          const sx = Math.sin(rad) * R;
+          const sy = -Math.cos(rad) * R;
+          const ex = Math.sin(rad) * (R - TICK_LEN);
+          const ey = -Math.cos(rad) * (R - TICK_LEN);
+          const tick = document.createElementNS(ns, "line");
+          tick.setAttribute("class", "tick");
+          tick.setAttribute("x1", sx);
+          tick.setAttribute("y1", sy);
+          tick.setAttribute("x2", ex);
+          tick.setAttribute("y2", ey);
+          svg.appendChild(tick);
+        }
+
+        const arm = document.createElementNS(ns, "line");
+        arm.setAttribute("class", "arm");
+        arm.setAttribute("x1", 0);
+        arm.setAttribute("y1", 0);
+        arm.setAttribute("stroke-width", 2);
+        svg.appendChild(arm);
+
+        const dot = document.createElementNS(ns, "circle");
+        dot.setAttribute("class", "dot");
+        dot.setAttribute("r", DOT_R);
+        svg.appendChild(dot);
+
+        let az = initialAz;
+
+        function render() {
+          const a = (az * Math.PI) / 180;
+          const x = Math.sin(a) * R;
+          const y = -Math.cos(a) * R;
+          arm.setAttribute("x2", x);
+          arm.setAttribute("y2", y);
+          dot.setAttribute("cx", x);
+          dot.setAttribute("cy", y);
+        }
+        render();
+
+        function pointerToAz(e) {
+          const rect = svg.getBoundingClientRect();
+          const dx = e.clientX - (rect.left + rect.width / 2);
+          const dy = e.clientY - (rect.top + rect.height / 2);
+          // atan2(dx, -dy): 0 at top, increases clockwise, in radians.
+          return (Math.atan2(dx, -dy) * 180) / Math.PI;
+        }
+
+        let dragging = false;
+        svg.addEventListener("pointerdown", (e) => {
+          dragging = true;
+          svg.setPointerCapture(e.pointerId);
+          az = pointerToAz(e);
+          render();
+          onChange(az);
+        });
+        svg.addEventListener("pointermove", (e) => {
+          if (!dragging) return;
+          az = pointerToAz(e);
+          render();
+          onChange(az);
+        });
+        const stop = (e) => {
+          if (!dragging) return;
+          dragging = false;
+          svg.releasePointerCapture(e.pointerId);
+        };
+        svg.addEventListener("pointerup", stop);
+        svg.addEventListener("pointercancel", stop);
+
+        return {
+          svg,
+          // Move the wheel programmatically (e.g. when the user types a
+          // value into the linked az number input). Does not fire onChange.
+          setValue(v) {
+            az = v;
+            render();
+          },
+        };
+      }
+
+      // Helper: two-way-bound numeric editor.
+      // - Reflects state changes (e.g. from slider drags) into the input,
+      //   unless the user is currently typing in it.
+      // - Parses user input on every keystroke; if the value parses to a
+      //   number, clamps to [min, max] and calls onCommit(clamped).
+      function makeNumEditor({ initial, min, max, decimals, onCommit }) {
+        const input = document.createElement("input");
+        input.type = "text";
+        input.inputMode = "decimal";
+        input.className = "num";
+        input.value = initial.toFixed(decimals);
+        input.addEventListener("input", () => {
+          const v = parseFloat(input.value);
+          if (Number.isNaN(v)) return;
+          const clamped = Math.max(min, Math.min(max, v));
+          onCommit(clamped);
+        });
+        // On blur, normalize whatever the user typed back to the canonical
+        // formatted value so the field doesn't end up showing "1." or "abc".
+        return {
+          input,
+          setValue(v) {
+            if (document.activeElement !== input) {
+              input.value = v.toFixed(decimals);
+            }
+          },
+          normalize(v) {
+            input.value = v.toFixed(decimals);
+          },
+        };
+      }
+
+      function makePanel(i) {
+        const fs = document.createElement("fieldset");
+
+        const lg = document.createElement("legend");
+        const nameInput = document.createElement("input");
+        nameInput.type = "text";
+        nameInput.className = "name-input";
+        nameInput.value = `object ${i}`;
+        lg.appendChild(nameInput);
+        fs.appendChild(lg);
+
+        const state = { az: 0, el: 0, r: 1 };
+
+        const xyzReadout = document.createElement("div");
+        xyzReadout.className = "xyz";
+
+        const update = () => schedule(i, state, xyzReadout);
+
+        // top row: azimuth wheel + vertical elevation slider
+        const top = document.createElement("div");
+        top.className = "top";
+
+        // --- AZIMUTH (wheel + number editor) ---
+        const azStack = document.createElement("div");
+        azStack.className = "stack az-stack";
+        const azLabel = document.createElement("div");
+        azLabel.className = "ctrl-label";
+        azLabel.textContent = "az";
+        azStack.appendChild(azLabel);
+        const azNum = makeNumEditor({
+          initial: state.az,
+          min: -180,
+          max: 180,
+          decimals: 2,
+          onCommit: (v) => {
+            state.az = v;
+            wheel.setValue(v);
+            update();
+          },
+        });
+        const wheel = makeWheel(state.az, (v) => {
+          state.az = v;
+          azNum.setValue(v);
+          update();
+        });
+        azNum.input.addEventListener("blur", () => azNum.normalize(state.az));
+        azStack.appendChild(wheel.svg);
+        azStack.appendChild(azNum.input);
+        top.appendChild(azStack);
+
+        // --- ELEVATION (vertical slider + number editor) ---
+        const elStack = document.createElement("div");
+        elStack.className = "stack el-stack";
+        const elLabel = document.createElement("div");
+        elLabel.className = "ctrl-label";
+        elLabel.textContent = "el";
+        elStack.appendChild(elLabel);
+        const elSlider = document.createElement("input");
+        elSlider.type = "range";
+        elSlider.setAttribute("aria-orientation", "vertical");
+        elSlider.min = -90;
+        elSlider.max = 90;
+        elSlider.step = 0.1;
+        elSlider.value = state.el;
+        const elWrap = document.createElement("div");
+        elWrap.className = "el-slider-wrap";
+        elWrap.appendChild(elSlider);
+        const elNum = makeNumEditor({
+          initial: state.el,
+          min: -90,
+          max: 90,
+          decimals: 2,
+          onCommit: (v) => {
+            state.el = v;
+            elSlider.value = v;
+            update();
+          },
+        });
+        elSlider.addEventListener("input", () => {
+          state.el = parseFloat(elSlider.value);
+          elNum.setValue(state.el);
+          update();
+        });
+        elNum.input.addEventListener("blur", () => elNum.normalize(state.el));
+        elStack.appendChild(elWrap);
+        elStack.appendChild(elNum.input);
+        top.appendChild(elStack);
+
+        fs.appendChild(top);
+
+        // --- RADIUS (horizontal slider + number editor) ---
+        const radLabel = document.createElement("div");
+        radLabel.className = "ctrl-label rad-label";
+        radLabel.textContent = "rad";
+        fs.appendChild(radLabel);
+        const rRow = document.createElement("div");
+        rRow.className = "r-row";
+        const rSlider = document.createElement("input");
+        rSlider.type = "range";
+        rSlider.min = 0;
+        rSlider.max = 2;
+        rSlider.step = 0.001;
+        rSlider.value = state.r;
+        const rNum = makeNumEditor({
+          initial: state.r,
+          min: 0,
+          max: 2,
+          decimals: 3,
+          onCommit: (v) => {
+            state.r = v;
+            rSlider.value = v;
+            update();
+          },
+        });
+        rSlider.addEventListener("input", () => {
+          state.r = parseFloat(rSlider.value);
+          rNum.setValue(state.r);
+          update();
+        });
+        rNum.input.addEventListener("blur", () => rNum.normalize(state.r));
+        rRow.appendChild(rSlider);
+        rRow.appendChild(rNum.input);
+        fs.appendChild(rRow);
+
+        fs.appendChild(xyzReadout);
+
+        // Send initial values once so the Bela starts in a known state.
+        update();
+
+        return fs;
+      }
+
+      // Throttle: at most one POST per object per animation frame.
+      const pending = new Map();
+      let rafId = null;
+
+      function schedule(i, state, xyzReadout) {
+        pending.set(i, { state: { ...state }, xyzReadout });
+        if (rafId !== null) return;
+        rafId = requestAnimationFrame(flush);
+      }
+
+      function flush() {
+        rafId = null;
+        const batch = Array.from(pending.entries());
+        pending.clear();
+        for (const [i, { state, xyzReadout }] of batch) {
+          const { x, y, z } = sphericalToCartesian(state.az, state.el, state.r);
+          xyzReadout.textContent = `x=${x.toFixed(3)}  y=${y.toFixed(3)}  z=${z.toFixed(3)}`;
+          fetch("/xyz", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ i, x, y, z }),
+          }).catch((err) => console.warn("send failed", err));
+        }
+      }
+
+      const grid = document.getElementById("grid");
+      for (let i = 0; i < NUM_OBJECTS; i++) {
+        grid.appendChild(makePanel(i));
+      }
+
+      // Recenter button: POSTs to /recenter, which sends a bare OSC
+      // /recenter message to Bela. Briefly flashes the button as a
+      // success indicator since the OSC send itself has no reply.
+      const recenterBtn = document.getElementById("recenter");
+      recenterBtn.addEventListener("click", () => {
+        fetch("/recenter", { method: "POST" })
+          .then((r) => {
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            recenterBtn.classList.add("flash");
+            setTimeout(() => recenterBtn.classList.remove("flash"), 150);
+          })
+          .catch((err) => console.warn("recenter failed", err));
+      });
+    </script>
+  </body>
+</html>
