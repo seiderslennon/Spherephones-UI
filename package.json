@@ -5,7 +5,10 @@
   "private": true,
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "deploy": "rsync -avz --exclude node_modules --exclude .git ./ root@192.168.7.2:/root/spherephones-ui/ && ssh root@192.168.7.2 systemctl restart spherephones-ui",
+    "deploy:full": "rsync -avz --exclude .git ./ root@192.168.7.2:/root/spherephones-ui/ && ssh root@192.168.7.2 systemctl restart spherephones-ui",
+    "logs": "ssh root@192.168.7.2 journalctl -u spherephones-ui -f"
   },
   "dependencies": {
     "express": "^4.21.0",

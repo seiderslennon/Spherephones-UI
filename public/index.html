@@ -74,8 +74,20 @@
       }
       .transport .song {
         font-size: 0.85rem;
-        color: #aaa;
-        font-variant-numeric: tabular-nums;
+        color: #eee;
+        background: transparent;
+        border: 1px solid #444;
+        border-radius: 3px;
+        padding: 0.2rem 0.45rem;
+        font-family: inherit;
+        min-width: 9rem;
+      }
+      .transport .song:focus {
+        outline: none;
+        border-color: #888;
+      }
+      .transport .song::placeholder {
+        color: #666;
       }
       /* Narrow windows: stack controls above hero so panels never overlap. */
       @media (max-width: 980px) {
@@ -312,7 +324,15 @@
         <div class="transport">
           <button id="play" class="btn" type="button">play</button>
           <button id="stop" class="btn" type="button">stop</button>
-          <span class="song" id="song-name"></span>
+          <input
+            type="text"
+            class="song"
+            id="song-name"
+            value="BillieJean"
+            placeholder="song folder name"
+            spellcheck="false"
+            autocomplete="off"
+          />
         </div>
       </div>
     </div>
@@ -681,25 +701,35 @@
         flashButton(resetBtn);
       });
 
-      // Transport: two independent buttons. Hardcoded to "BillieJean"
-      // for now — this will become a song picker once more stems are
-      // loaded on the Bela.
-      const CURRENT_SONG = "BillieJean";
+      // Transport: song name is whatever's in the song-name input. The string
+      // is forwarded to Bela as the OSC /play arg, where gPlayer.play(name)
+      // resolves it to a folder of stems in the Bela project directory. The
+      // input keeps "BillieJean" as the default; clearing it falls back to
+      // that default rather than sending an empty song name.
+      const DEFAULT_SONG = "BillieJean";
+      const songInput = document.getElementById("song-name");
       const playBtn = document.getElementById("play");
       const stopBtn = document.getElementById("stop");
-      document.getElementById("song-name").textContent = CURRENT_SONG;
+      const currentSong = () => songInput.value.trim() || DEFAULT_SONG;
 
       playBtn.addEventListener("click", () => {
         fetch("/play", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ song: CURRENT_SONG }),
+          body: JSON.stringify({ song: currentSong() }),
         })
           .then((r) => {
             if (!r.ok) throw new Error(`HTTP ${r.status}`);
             flashButton(playBtn);
           })
           .catch((err) => console.warn("play failed", err));
+      });
+
+      songInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          playBtn.click();
+        }
       });
 
       stopBtn.addEventListener("click", () => {

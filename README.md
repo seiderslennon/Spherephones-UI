@@ -51,3 +51,12 @@ updated cartesian coordinates for that object over OSC to the Bela.
   frame so dragging doesn't flood the network.
 - No build step, no framework. The whole UI is one HTML file.
 # Spherephones-UI
+
+after making changes, upload them to bela with:
+rsync -avz --exclude node_modules --exclude .git \
+  ./ root@192.168.7.2:/root/spherephones-ui/
+
+ssh root@192.168.7.2 systemctl restart spherephones-ui
+
+OR:
+npm run deploy
