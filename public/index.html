@@ -318,19 +318,19 @@
     </div>
 
     <script>
-      // Spherical -> cartesian convention. Y-up (y is the vertical axis), to
-      // match the audio renderer on the Bela. Elevation drives y; the wheel's
-      // azimuth drives the x/z (horizontal) plane.
-      // azDeg: 0 = +x axis (front), increases clockwise toward -z (right).
+      // Spherical -> cartesian convention. Z-up (z is the vertical axis), to
+      // match the audio renderer on the Bela. Elevation drives z; the wheel's
+      // azimuth drives the x/y (horizontal) plane.
+      // azDeg: 0 = +x axis (front), increases clockwise toward -y (right).
       //        Matches the wheel UI: 0 = up on screen, positive = clockwise.
-      // elDeg: 0 = horizontal plane, +90 = +y (up).
-      // If your renderer expects Z-up, swap the y and z assignments below.
+      // elDeg: 0 = horizontal plane, +90 = +z (up).
+      // If your renderer expects Y-up instead, swap the y and z assignments below.
       function sphericalToCartesian(azDeg, elDeg, r) {
         const az = (azDeg * Math.PI) / 180;
         const el = (elDeg * Math.PI) / 180;
         const x = r * Math.cos(el) * Math.cos(az);
-        const y = r * Math.sin(el);
-        const z = -r * Math.cos(el) * Math.sin(az);
+        const y = -r * Math.cos(el) * Math.sin(az);
+        const z = r * Math.sin(el);
         return { x, y, z };
       }
 
